@@ -1,0 +1,26 @@
+import os
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/tenders"
+    database_url_sync: str = "postgresql://postgres:postgres@localhost:5432/tenders"
+
+    rabbitmq_host: str = "localhost"
+    rabbitmq_port: int = 5672
+    rabbitmq_user: str = "guest"
+    rabbitmq_password: str = "guest"
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+
+    openai_api_key: str = ""
+    openai_base_url: str = "api.agentplatform.ru"
+    openai_model: str = "openai/gpt-5.2-chat"
+
+    worker_concurrency: int = 4
+
+    class Config:
+        env_file = ".env"
+        extra = "allow"
+
+
+settings = Settings()
