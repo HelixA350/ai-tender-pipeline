@@ -48,48 +48,197 @@ open http://localhost:8000/docs
 | GET | `/tenders/extraction/{task_id}` | Получить статус/результат |
 | GET | `/health/` | Health check |
 
-### Пример использования
+---
 
-```bash
-# Создание задачи
-curl -X POST http://localhost:8000/tenders/extraction \
-  -H "Content-Type: application/json" \
-  -d '{
-    "archive_url": "https://example.com/tender.zip",
-    "tender_id": "TENDER-2024-001"
-  }'
+## Форматы данных
 
-# Ответ
+### POST /tenders/extraction
+
+Создание задачи на извлечение данных из архива тендерной документации.
+
+**Request:**
+```json
+{
+  "archive_url": "https://example.com/tender.zip",
+  "tender_id": "TENDER-2024-001"
+}
+```
+
+| Поле | Тип | Обязательно | Описание |
+|------|-----|-------------|----------|
+| `archive_url` | string | Да | URL для скачивания архива (zip, rar, 7z, tar.gz) |
+| `tender_id` | string | Да | Идентификатор тендера, для связи с CRM |
+
+**Response:**
+```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "tender_id": "TENDER-2024-001",
   "archive_url": "https://example.com/tender.zip",
   "status": "pending",
-  ...
+  "current_stage": null,
+  "stage_progress": {},
+  "result_json": null,
+  "failed_files": null,
+  "error_message": null,
+  "retry_count": 0,
+  "created_at": "2024-01-01T00:00:00",
+  "updated_at": "2024-01-01T00:00:00"
 }
+```
 
-# Проверка статуса
-curl http://localhost:8000/tenders/extraction/550e8400-e29b-41d4-a716-446655440000
+---
 
-# Ответ (в процессе)
+### GET /tenders/extraction/{task_id}
+
+Получение статуса и результата обработки.
+
+**Response (в процессе):**
+```json
 {
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "processing",
   "current_stage": "llm",
-  ...
+  "result_json": null,
+  "failed_files": null,
+  "error_message": null
 }
+```
 
-# Ответ (завершено)
+**Response (завершено):**
+```json
 {
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "completed",
+  "current_stage": "completed",
   "result_json": {
-    "tender_id": "...",
-    "identification": {...},
-    ...
-  }
+    "_meta": {
+      "source_files": ["doc1.pdf", "spec.xlsx"],
+      "tender_types": ["закупка"],
+      "package_comments": null
+    },
+    "tender_id": "TENDER-2024-001",
+    "tender_types": ["закупка"],
+    "identification": {
+      "tender_id": "РН60306304",
+      "external_id": null,
+      "source": null
+    },
+    "general": {
+      "name": "Фильтры, корпуса, сальники...",
+      "method": "Запрос (Т)КП",
+      "status": "Приём заявок",
+      "platform": "ТЭК-Торг",
+      "platform_url": null,
+      "lot_divisible": null,
+      "rebidding_allowed": null,
+      "notes": null
+    },
+    "parties": {
+      "customer": {
+        "name": "ООО \"РН-КОМСОМОЛЬСКИЙ НПЗ\"",
+        "full_name": null,
+        "inn": "27030328...",
+        "kpp": null,
+        "address": null,
+        "contact_persons": null,
+        "procurement_org": null,
+        "procurement_group": null,
+        "notes": null
+      },
+      "notes": null
+    },
+    "dates": {
+      "publication_date": "2026-03-30",
+      "submission_deadline": "2026-04-10",
+      "submission_time": "09:00:00",
+      "submission_timezone": "МСК+3",
+      "opening_date": null,
+      "opening_time": null,
+      "results_date": null,
+      "clarification_request_deadline": null,
+      "delivery_start": null,
+      "delivery_end": null,
+      "early_delivery_allowed": null,
+      "notes": null
+    },
+    "financials": {
+      "nmck": null,
+      "bid_security": null,
+      "contract_security": null,
+      "auction_step": null,
+      "currencies": null,
+      "base_currency": null,
+      "vat_rate": null,
+      "prices_include_vat": null,
+      "payment_terms": null,
+      "incoterms": null,
+      "penalties": null,
+      "notes": null
+    },
+    "procurement_items": [
+      {
+        "position": 1,
+        "name": "Фильтр",
+        "article": "123456",
+        "manufacturer": "Example",
+        "qty": 10,
+        "unit": "шт",
+        "npp": null,
+        "category": null,
+        "unit_price": null,
+        "currency": null,
+        "delivery_date": null,
+        "delivery_location": null,
+        "analog_allowed": null,
+        "original_reference": null,
+        "linked_service": null,
+        "source": null,
+        "notes": null
+      }
+    ],
+    "special_items": null,
+    "items_summary": {
+      "total_positions": 1,
+      "total_qty_units": 10,
+      "price_filled": false,
+      "manufacturers_unique": null,
+      "is_single_manufacturer": null
+    },
+    "product_requirements": {
+      "condition": "новый",
+      "warranty_months": null,
+      "warranty_start": null,
+      "analog_allowed": null,
+      "analog_rules": null,
+      "import_substitution_required": null,
+      "import_substitution_registry": null,
+      "origin_restrictions": null,
+      "notes": null
+    },
+    "service_scope": null,
+    "engineering_scope": null,
+    "participant_requirements": null,
+    "submission_documents": null,
+    "scoring_signals": null
+  },
+  "failed_files": ["document.pdf"],
+  "error_message": null
 }
 ```
+
+---
+
+### Ответы status
+
+| Status | Описание |
+|--------|-----------|
+| `pending` | Задача создана, в очереди |
+| `processing` | Задача в обработке |
+| `completed` | Успешно завершено |
+| `failed` | Ошибка при обработке |
+
+---
 
 ## Архитектура
 
@@ -107,7 +256,7 @@ curl http://localhost:8000/tenders/extraction/550e8400-e29b-41d4-a716-4466554400
                       │
                       ▼
 ┌─────────────────────────────────────────┐
-│  RabbitMQ (queue: tender_tasks)          │
+│  RabbitMQ (queue: celery)               │
 └─────────────────────┬───────────────────┘
                       │
                       ▼
@@ -115,7 +264,8 @@ curl http://localhost:8000/tenders/extraction/550e8400-e29b-41d4-a716-4466554400
 │  Celery Worker                          │
 │  Pipeline Stages:                       │
 │  1. Download → 2. Extract → 3. Convert  │
-│  4. LLM → 5. Save (background)          │
+│  4. LLM (with_structured_output)        │
+│  5. Save (background)                   │
 └─────────────────────┬───────────────────┘
                       │
                       ▼
@@ -124,16 +274,28 @@ curl http://localhost:8000/tenders/extraction/550e8400-e29b-41d4-a716-4466554400
 └─────────────────────────────────────────┘
 ```
 
+### Этапы Pipeline
+
+1. **Download** — Скачивание архива по URL
+2. **Extract** — Извлечение файлов из архива (zip, rar, 7z, tar.gz)
+3. **Convert** — Конвертация файлов в Markdown (markitdown)
+4. **LLM** — Извлечение структурированных данных через LangChain + OpenAI с использованием `with_structured_output()`
+5. **Save** — Сохранение результата в БД (фоновая задача)
+
+---
+
 ## Переменные окружения
 
 | Переменная | Описание | По умолчанию |
 |------------|----------|--------------|
-| `DATABASE_URL` | PostgreSQL async URL | postgresql+asyncpg://... |
-| `DATABASE_URL_SYNC` | PostgreSQL sync URL | postgresql://... |
-| `RABBITMQ_URL` | RabbitMQ URL | amqp://guest:guest@localhost:5672/ |
+| `DATABASE_URL` | PostgreSQL async URL | postgresql+asyncpg://postgres:postgres@postgres:5432/tenders |
+| `DATABASE_URL_SYNC` | PostgreSQL sync URL | postgresql://postgres:postgres@postgres:5432/tenders |
+| `RABBITMQ_URL` | RabbitMQ URL | amqp://guest:guest@rabbitmq:5672/ |
 | `OPENAI_API_KEY` | API ключ OpenAI | - |
 | `OPENAI_BASE_URL` | Base URL API | api.agentplatform.ru |
 | `OPENAI_MODEL` | Модель | openai/gpt-5.2-chat |
+
+---
 
 ## Расширение pipeline
 
@@ -151,6 +313,8 @@ class MyNewStage:
         context.some_data = "processed"
 ```
 
+---
+
 ## Тестирование
 
 ```bash
@@ -161,6 +325,14 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
-## Лицензия
+---
 
-MIT
+## Мониторинг
+
+```bash
+# Логи API
+docker-compose logs -f api
+
+# Логи Worker
+docker-compose logs -f worker
+```
