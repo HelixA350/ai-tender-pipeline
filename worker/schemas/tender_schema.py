@@ -3,9 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class TenderSchema(BaseModel):
-    _meta: "MetaInfo"
+    meta: "MetaInfo"
     tender_id: str
-    tender_types: List[str]
     identification: "Identification"
     summary: "SemanticSummary"
     general: "GeneralInfo"
@@ -178,7 +177,7 @@ class SourceFile(BaseModel):
     description: str = Field(description="Краткое описание что в файле")
 
 class MetaInfo(BaseModel):
-    source_files: List[SourceFile] = Field(description="Список исходных файлов с описанием и типами")
+    source_files: List[SourceFile]
     tender_types: List[Literal['закупка', 'сервис', 'реинж']] = Field(
         description="Типы тендера: 'закупка', 'сервис', 'реинж'. "
         "Определяет какие блоки заполнять."

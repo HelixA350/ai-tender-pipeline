@@ -34,13 +34,7 @@ Be thorough and extract as much information as possible."""
             result = structured_llm.invoke(f"{system_prompt}\n\n{combined_content}")
 
             result_dict = result.model_dump()
-
-            result_dict["_meta"] = {
-                "source_files": list(context.markdown_contents.keys()),
-                "tender_types": result_dict.get("tender_types", []),
-                "package_comments": None,
-            }
-
+            
             context.extraction_result = result_dict
             logger.info("LLM extraction completed")
 

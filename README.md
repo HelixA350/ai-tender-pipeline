@@ -80,6 +80,7 @@ open http://localhost:8000/docs
   "stage_progress": {},
   "result_json": null,
   "failed_files": null,
+  "summary_text": null,
   "error_message": null,
   "retry_count": 0,
   "created_at": "2024-01-01T00:00:00",
@@ -101,6 +102,7 @@ open http://localhost:8000/docs
   "current_stage": "llm",
   "result_json": null,
   "failed_files": null,
+  "summary_text": null,
   "error_message": null
 }
 ```
@@ -112,13 +114,27 @@ open http://localhost:8000/docs
   "status": "completed",
   "current_stage": "completed",
   "result_json": {
-    "_meta": {
+    "meta": {
       "source_files": ["doc1.pdf", "spec.xlsx"],
       "tender_types": ["закупка"],
       "package_comments": null
     },
     "tender_id": "TENDER-2024-001",
     "tender_types": ["закупка"],
+    "summary": {
+      "customer": "Нефтеперерабатывающий завод в Хабаровском крае (ПАО Роснефть)",
+      "procurement_method": "Запрос предложений на SAP SRM, переторг разрешён",
+      "supply_scope": "Поставка 34 позиций запасных частей для дизельного двигателя Caterpillar 3512",
+      "service_scope": null,
+      "engineering_scope": null,
+      "delivery_terms": "DDP склад заказчика (г. Нефтеюганск), срок поставки — 90 дней",
+      "financial_profile": "НМЦ 4,2 млн руб. с НДС 20%. Оплата по факту поставки в течение 30 дней",
+      "penalty_profile": "0,1% за каждый день просрочки, максимум 10%",
+      "product_requirements": "Только новое оборудование. Гарантия 24 месяца",
+      "participant_requirements": null,
+      "timeline_summary": "Заявки до 15 мая 2025 (МСК), поставка 60 дней",
+      "complexity_flags": "Удалённый регион; жёсткая привязка к бренду"
+    },
     "identification": {
       "tender_id": "РН60306304",
       "external_id": null,
@@ -223,6 +239,7 @@ open http://localhost:8000/docs
     "scoring_signals": null
   },
   "failed_files": ["document.pdf"],
+  "summary_text": "Заказчик: ООО РН-НПЗ | Способ закупки: Запрос предложений | Номенклатура: Фильтры для компрессоров | ...",
   "error_message": null
 }
 ```
