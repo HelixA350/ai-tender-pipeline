@@ -46,6 +46,7 @@ class SaveStage:
                             },
                             result_json=context.extraction_result,
                             failed_files=context.failed_files,
+                            summary_text=context.summary_text,
                             error_message=None,
                         )
                     )

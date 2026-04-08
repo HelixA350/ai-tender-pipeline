@@ -21,6 +21,7 @@ class PipelineContext:
         self.markdown_contents: dict[str, str] = {}
         self.extraction_result: dict | None = None
         self.failed_files: list[str] = []
+        self.summary_text: str = ""
 
 
 async def update_task_status(
@@ -29,6 +30,7 @@ async def update_task_status(
     result: dict | None = None,
     error: str | None = None,
     failed_files: list | None = None,
+    summary_text: str | None = None,
 ):
     from sqlalchemy import update
     from sqlalchemy.ext.asyncio import (
@@ -56,6 +58,10 @@ async def update_task_status(
             values["error_message"] = error
         if failed_files is not None:
             values["failed_files"] = failed_files
+        if summary_text is not None:
+            values["summary_text"] = summary_text
+        elif summary_text == "":
+            values["summary_text"] = ""
 
         stmt = (
             update(ExtractionTask)
@@ -95,11 +101,26 @@ class ExtractionPipeline:
 
         # Update status to "completed" BEFORE background save
         logger.info(f"Updating task {task_id} status to completed")
+
+        # Extract summary_text from result using SemanticSummary.to_text()
+        context.summary_text = ""
+        if context.extraction_result and context.extraction_result.get("summary"):
+            from worker.schemas.tender_schema import SemanticSummary
+
+            summary_data = context.extraction_result["summary"]
+            if summary_data:
+                try:
+                    summary_obj = SemanticSummary(**summary_data)
+                    context.summary_text = summary_obj.to_text()
+                except Exception as e:
+                    logger.warning(f"Failed to extract summary_text: {e}")
+
         await update_task_status(
             task_id,
             "completed",
             context.extraction_result,
             failed_files=context.failed_files,
+            summary_text=context.summary_text,
         )
 
         # Run SaveStage (background save - doesn't block)

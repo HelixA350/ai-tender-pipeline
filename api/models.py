@@ -18,6 +18,7 @@ class ExtractionResponse(BaseModel):
     stage_progress: Optional[dict] = None
     result_json: Optional[dict] = None
     failed_files: Optional[list] = None
+    summary_text: Optional[str] = None
     error_message: Optional[str] = None
     retry_count: int
     created_at: datetime
@@ -33,4 +34,5 @@ class ExtractionStatusResponse(BaseModel):
     current_stage: Optional[str] = None
     result_json: Optional[dict] = None
     failed_files: Optional[list] = None
+    summary_text: Optional[str] = None
     error_message: Optional[str] = None

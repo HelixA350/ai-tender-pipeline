@@ -25,6 +25,7 @@ class ExtractionTask(Base):
     stage_progress = Column(JSON, default=dict)
     result_json = Column(JSON, nullable=True)
     failed_files = Column(JSON, default=list)
+    summary_text = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)

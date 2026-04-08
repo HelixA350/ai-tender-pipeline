@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS extraction_tasks (
     stage_progress JSONB DEFAULT '{}',
     result_json JSONB,
     failed_files JSONB DEFAULT '[]',
+    summary_text TEXT,
     error_message TEXT,
     retry_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
