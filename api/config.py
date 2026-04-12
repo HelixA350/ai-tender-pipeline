@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     openai_base_url: str = "api.agentplatform.ru"
     openai_model: str = "openai/gpt-5.2-chat"
 
+    minio_endpoint: str = "minio:9000"
+    minio_access_key: str = "minioadmin"
+    minio_secret_key: str = "minioadmin"
+    minio_secure: bool = False
+    minio_public_url: str = "localhost:9000"
+
     worker_concurrency: int = 4
 
     class Config:

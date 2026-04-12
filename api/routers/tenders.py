@@ -48,5 +48,6 @@ async def get_extraction_status(task_id: UUID, db: AsyncSession = Depends(get_db
         result_json=task.result_json,
         failed_files=task.failed_files,
         summary_text=task.summary_text,
+        procurement_request_url=task.procurement_request_url,
         error_message=task.error_message,
     )

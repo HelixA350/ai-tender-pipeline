@@ -35,4 +35,5 @@ class ExtractionStatusResponse(BaseModel):
     result_json: Optional[dict] = None
     failed_files: Optional[list] = None
     summary_text: Optional[str] = None
+    procurement_request_url: Optional[str] = None
     error_message: Optional[str] = None

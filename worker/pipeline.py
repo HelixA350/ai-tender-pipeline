@@ -9,8 +9,68 @@ from worker.stages.extract import ExtractStage
 from worker.stages.convert import ConvertStage
 from worker.stages.extract_llm import ExtractLLMStage
 from worker.stages.save import SaveStage
+from worker.stages.create_procurement_request import CreateProcurementRequestStage
 
 logger = logging.getLogger(__name__)
+
+
+async def run_stage(stage, context, task_id: str):
+    stage_name = stage.__class__.__name__
+    logger.info(f"Executing stage: {stage_name} for task {task_id}")
+
+    try:
+        await stage.execute(context)
+        logger.info(f"Stage {stage_name} completed for task {task_id}")
+    except Exception as e:
+        logger.error(f"Stage {stage_name} failed for task {task_id}: {e}")
+        raise
+
+
+async def try_run_stage(stage, context, task_id: str, stage_key: str):
+    stage_name = stage.__class__.__name__
+    max_retries = 3
+
+    if context.extraction_result is None:
+        context.extraction_result = {}
+
+    context.extraction_result.setdefault("stage_errors", {})
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(
+                f"Executing stage: {stage_name} for task {task_id} (attempt {attempt}/{max_retries})"
+            )
+            await stage.execute(context)
+            logger.info(f"Stage {stage_name} completed for task {task_id}")
+            return True
+        except Exception as e:
+            logger.warning(
+                f"Stage {stage_name} failed for task {task_id} (attempt {attempt}/{max_retries}): {e}"
+            )
+            if attempt == max_retries:
+                context.extraction_result["stage_errors"][stage_key] = str(e)
+                return False
+            await asyncio.sleep(2)
+
+    return False
+
+
+def extract_summary_text(context: "PipelineContext") -> str:
+    if not context.extraction_result or not context.extraction_result.get("summary"):
+        return ""
+
+    from worker.schemas.tender_schema import SemanticSummary
+
+    summary_data = context.extraction_result["summary"]
+    if not summary_data:
+        return ""
+
+    try:
+        summary_obj = SemanticSummary(**summary_data)
+        return summary_obj.to_text()
+    except Exception as e:
+        logger.warning(f"Failed to extract summary_text: {e}")
+        return ""
 
 
 class PipelineContext:
@@ -22,6 +82,7 @@ class PipelineContext:
         self.extraction_result: dict | None = None
         self.failed_files: list[str] = []
         self.summary_text: str = ""
+        self.procurement_request_url: str | None = None
 
 
 async def update_task_status(
@@ -31,6 +92,7 @@ async def update_task_status(
     error: str | None = None,
     failed_files: list | None = None,
     summary_text: str | None = None,
+    procurement_request_url: str | None = None,
 ):
     from sqlalchemy import update
     from sqlalchemy.ext.asyncio import (
@@ -62,6 +124,8 @@ async def update_task_status(
             values["summary_text"] = summary_text
         elif summary_text == "":
             values["summary_text"] = ""
+        if procurement_request_url is not None:
+            values["procurement_request_url"] = procurement_request_url
 
         stmt = (
             update(ExtractionTask)
@@ -76,44 +140,37 @@ async def update_task_status(
 
 class ExtractionPipeline:
     def __init__(self):
-        self.stages = [
-            DownloadStage(),
-            ExtractStage(),
-            ConvertStage(),
-            ExtractLLMStage(),
-            SaveStage(),
-        ]
+        self.download_stage = DownloadStage()
+        self.extract_stage = ExtractStage()
+        self.convert_stage = ConvertStage()
+        self.llm_stage = ExtractLLMStage()
+        self.save_stage = SaveStage()
+        self.procurement_request_stage = CreateProcurementRequestStage()
 
     async def execute(self, task_id: str) -> dict:
         context = PipelineContext(task_id)
 
-        # Run stages 1-4 (Download, Extract, Convert, LLM)
-        for stage in self.stages[:-1]:
-            stage_name = stage.__class__.__name__
-            logger.info(f"Executing stage: {stage_name} for task {task_id}")
+        await run_stage(self.download_stage, context, task_id)
+        await run_stage(self.extract_stage, context, task_id)
+        await run_stage(self.convert_stage, context, task_id)
+        await run_stage(self.llm_stage, context, task_id)
 
-            try:
-                await stage.execute(context)
-                logger.info(f"Stage {stage_name} completed for task {task_id}")
-            except Exception as e:
-                logger.error(f"Stage {stage_name} failed for task {task_id}: {e}")
-                raise
+        procurement_items = (
+            context.extraction_result.get("procurement_items", [])
+            if context.extraction_result
+            else []
+        )
+        if procurement_items:
+            await try_run_stage(
+                self.procurement_request_stage,
+                context,
+                task_id,
+                "create_procurement_request",
+            )
 
-        # Update status to "completed" BEFORE background save
         logger.info(f"Updating task {task_id} status to completed")
 
-        # Extract summary_text from result using SemanticSummary.to_text()
-        context.summary_text = ""
-        if context.extraction_result and context.extraction_result.get("summary"):
-            from worker.schemas.tender_schema import SemanticSummary
-
-            summary_data = context.extraction_result["summary"]
-            if summary_data:
-                try:
-                    summary_obj = SemanticSummary(**summary_data)
-                    context.summary_text = summary_obj.to_text()
-                except Exception as e:
-                    logger.warning(f"Failed to extract summary_text: {e}")
+        context.summary_text = extract_summary_text(context)
 
         await update_task_status(
             task_id,
@@ -121,11 +178,10 @@ class ExtractionPipeline:
             context.extraction_result,
             failed_files=context.failed_files,
             summary_text=context.summary_text,
+            procurement_request_url=context.procurement_request_url,
         )
 
-        # Run SaveStage (background save - doesn't block)
-        save_stage = SaveStage()
-        await save_stage.execute(context)
+        await self.save_stage.execute(context)
 
         return context.extraction_result or {}
 
