@@ -240,6 +240,7 @@ open http://localhost:8000/docs
   },
   "failed_files": ["document.pdf"],
   "summary_text": "Заказчик: ООО РН-НПЗ | Способ закупки: Запрос предложений | Номенклатура: Фильтры для компрессоров | ...",
+  "procurement_request_url": "http://minio.example.com/550e8400-e29b-41d4-a716-446655440000/zakupka.xlsx",
   "error_message": null
 }
 ```
@@ -297,7 +298,8 @@ open http://localhost:8000/docs
 2. **Extract** — Извлечение файлов из архива (zip, rar, 7z, tar.gz)
 3. **Convert** — Конвертация файлов в Markdown (markitdown)
 4. **LLM** — Извлечение структурированных данных через LangChain + OpenAI с использованием `with_structured_output()`
-5. **Save** — Сохранение результата в БД (фоновая задача)
+5. **Zakupka** — Создание Excel-заявки для отдела закупок (сохранение в Minio)
+6. **Save** — Сохранение результата в БД (фоновая задача)
 
 ---
 
@@ -311,6 +313,7 @@ open http://localhost:8000/docs
 | `OPENAI_API_KEY` | API ключ OpenAI | - |
 | `OPENAI_BASE_URL` | Base URL API | api.agentplatform.ru |
 | `OPENAI_MODEL` | Модель | openai/gpt-5.2-chat |
+| `MINIO_PUBLIC_URL` | Публичный URL Minio | - |
 
 ---
 
