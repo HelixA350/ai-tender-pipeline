@@ -298,7 +298,7 @@ open http://localhost:8000/docs
 2. **Extract** — Извлечение файлов из архива (zip, rar, 7z, tar.gz)
 3. **Convert** — Конвертация файлов в Markdown (markitdown)
 4. **LLM** — Извлечение структурированных данных через LangChain + OpenAI с использованием `with_structured_output()`
-5. **Zakupka** — Создание Excel-заявки для отдела закупок (сохранение в Minio)
+5. **CreateProcurementRequest** — Создание Excel-заявки для отдела закупок (сохранение в Minio)
 6. **Save** — Сохранение результата в БД (фоновая задача)
 
 ---

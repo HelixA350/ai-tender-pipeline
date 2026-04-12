@@ -32,6 +32,9 @@ AI Tender Pipeline — это система для автоматическог
 | current_stage | VARCHAR(30) | Текущий этап |
 | stage_progress | JSONB | Прогресс по этапам |
 | result_json | JSONB | Результат извлечения |
+| failed_files | JSONB | Список файлов с ошибками |
+| summary_text | TEXT | Текстовое резюме |
+| procurement_request_url | TEXT | URL Excel-заявки для закупок |
 | error_message | TEXT | Сообщение об ошибке |
 | retry_count | INT | Количество попыток |
 | created_at | TIMESTAMP | Дата создания |
@@ -57,9 +60,9 @@ AI Tender Pipeline — это система для автоматическог
 **Этапы обработки**:
 
 ```
-[Скачивание] → [Извлечение из архива] → [Конвертация в Markdown] → [Извлечение LLM] → [Сохранение]
-   ↓              ↓                    ↓                      ↓                  ↓
- Stage 1       Stage 2               Stage 3                Stage 4            Stage 5 (background)
+[Скачивание] → [Извлечение из архива] → [Конвертация в Markdown] → [Извлечение LLM] → [CreateProcurementRequest] → [Сохранение]
+   ↓              ↓                    ↓                      ↓                          ↓                         ↓
+ Stage 1       Stage 2               Stage 3                Stage 4              Stage 5               Stage 6 (background)
 ```
 
 #### Stage 1: Download
@@ -87,7 +90,15 @@ AI Tender Pipeline — это система для автоматическог
 - Использует Pydantic schema (`worker/schemas/tender_schema.py`)
 - `with_structured_output()` для гарантированного JSON
 
-#### Stage 5: Save (Background)
+#### Stage 5: CreateProcurementRequest
+**Файл**: `worker/stages/create_procurement_request.py`
+
+Создает Excel-заявку для отдела закупок:
+- Генерирует Excel-файл из извлеченных данных
+- Сохраняет в Minio
+- Возвращает URL для скачивания
+
+#### Stage 6: Save (Background)
 **Файл**: `worker/stages/save.py`
 
 Сохраняет результат в БД асинхронно:
@@ -181,6 +192,16 @@ RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
 RABBITMQ_PASSWORD=guest
+```
+
+### Minio
+
+```env
+MINIO_ENDPOINT=minio:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_SECURE=false
+MINIO_PUBLIC_URL=minio.example.com
 ```
 
 ## Масштабирование
