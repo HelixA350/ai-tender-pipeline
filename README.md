@@ -313,7 +313,7 @@ open http://localhost:8000/docs
 | `OPENAI_API_KEY` | API ключ OpenAI | - |
 | `OPENAI_BASE_URL` | Base URL API | api.agentplatform.ru |
 | `OPENAI_MODEL` | Модель | openai/gpt-5.2-chat |
-| `MINIO_PUBLIC_URL` | Публичный URL Minio | - |
+| `MINIO_PUBLIC_URL` | Публичный URL Minio | localhost:9000 |
 
 ---
 
