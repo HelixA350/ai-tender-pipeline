@@ -1,3 +1,4 @@
+import logging
 import os
 from pydantic_settings import BaseSettings
 
@@ -30,3 +31,18 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
+
+
+def setup_logging():
+    os.makedirs(LOG_DIR, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(LOG_FILE),
+            logging.StreamHandler(),
+        ],
+    )
