@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS extraction_tasks (
     result_json JSONB,
     failed_files JSONB DEFAULT '[]',
     summary_text TEXT,
+    procurement_request_url TEXT,
     error_message TEXT,
     retry_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),

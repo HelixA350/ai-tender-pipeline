@@ -3,10 +3,37 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.database import init_db
 from api.routers import tenders
 from api.config import LOG_FILE, setup_logging
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+
+        if path == "/file.log":
+            return await call_next(request)
+
+        logger.info(f"Request: {request.method} {path}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+
+        if request.method in ("POST", "PUT", "PATCH"):
+            body = await request.body()
+            logger.info(f"Request body: {body}")
+
+            async def receive():
+                return {"type": "http.request", "body": body}
+
+            request._receive = receive
+
+        response = await call_next(request)
+
+        logger.info(f"Response status: {response.status_code}")
+
+        return response
 
 
 @asynccontextmanager
@@ -17,6 +44,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Tender Pipeline", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(LoggingMiddleware)
 
 app.include_router(tenders.router)
 
@@ -31,11 +60,7 @@ logger = logging.getLogger(__name__)
 
 @app.post("/ping")
 async def ping(request: Request):
-    body = await request.body()
-    logger.info(f"PING - body: {body}")
-    logger.info(f"PING - query_params: {dict(request.query_params)}")
-    logger.info(f"PING - headers: {dict(request.headers)}")
-    return {"status": "logged"}
+    return {"status": "ok"}
 
 
 @app.get("/file.log")
