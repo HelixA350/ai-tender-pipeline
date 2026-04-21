@@ -9,7 +9,7 @@ from api.database import init_db
 from api.routers import tenders
 from api.config import LOG_FILE, setup_logging
 
-
+logger = logging.getLogger(__name__)
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -55,7 +55,7 @@ async def health_check():
     return {"status": "healthy"}
 
 
-logger = logging.getLogger(__name__)
+
 
 
 @app.post("/ping")
