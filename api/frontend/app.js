@@ -314,12 +314,14 @@ function showError(message) {
     showSection('accordionContent', false);
     document.getElementById('errorCard').hidden = false;
     document.getElementById('errorMessage').textContent = message;
+    document.getElementById('submitBtn').disabled = false;
 }
 
 function showResults(data) {
     showSection('progressSection', false);
     showSection('resultSection', true);
     showSection('errorCard', false);
+    document.getElementById('submitBtn').disabled = false;
     
     if (data.summary_text) {
         document.getElementById('summaryContent').textContent = data.summary_text;
@@ -385,12 +387,7 @@ async function submitForm(event) {
     }
     
     const submitBtn = document.getElementById('submitBtn');
-    const btnText = submitBtn.querySelector('.btn-text');
-    const btnLoader = submitBtn.querySelector('.btn-loader');
-    
     submitBtn.disabled = true;
-    btnText.hidden = true;
-    btnLoader.hidden = false;
     
     showSection('progressSection', true);
     showSection('resultSection', false);
@@ -424,10 +421,6 @@ async function submitForm(event) {
         
     } catch (error) {
         showError(error.message);
-    } finally {
-        submitBtn.disabled = false;
-        btnText.hidden = false;
-        btnLoader.hidden = true;
     }
 }
 
