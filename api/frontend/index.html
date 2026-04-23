@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ тендерной документации</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Анализ тендерной документации</h1>
+            <p class="subtitle">Загрузите документацию и получите структурированную сводку</p>
+        </header>
+
+        <main class="main">
+            <section class="upload-section">
+                <form id="uploadForm" class="upload-form">
+                    <div class="form-group">
+                        <label for="tenderId">ID тендера</label>
+                        <input type="text" id="tenderId" name="tenderId" placeholder="Например: TENDER-2024-001" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="archiveUrl">URL архива с документацией</label>
+                        <input type="url" id="archiveUrl" name="archiveUrl" placeholder="https://example.com/archive.zip" required>
+                    </div>
+                    <button type="submit" id="submitBtn" class="btn btn-primary">
+                        <span class="btn-text">Начать анализ</span>
+                        <span class="btn-loader" hidden>
+                            <span class="spinner"></span>
+                        </span>
+                    </button>
+                </form>
+            </section>
+
+            <section id="progressSection" class="progress-section" hidden>
+                <div class="progress-card">
+                    <div class="spinner-large"></div>
+                    <p class="progress-status" id="statusText">Ожидание...</p>
+                    <p class="progress-stage" id="stageText"></p>
+                </div>
+            </section>
+
+            <section id="resultSection" class="result-section" hidden>
+                <div class="result-card summary-card">
+                    <h2 class="card-title">Краткая сводка</h2>
+                    <div class="summary-content" id="summaryContent"></div>
+                </div>
+
+                <div class="result-card download-card" id="downloadCard" hidden>
+                    <h2 class="card-title">Заявка в отдел закупок</h2>
+                    <a href="#" id="downloadLink" class="btn btn-download" target="_blank">
+                        <svg class="download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Скачать заявку
+                    </a>
+                </div>
+
+                <div class="result-card accordion-card">
+                    <button class="accordion-header" id="accordionToggle">
+                        <span class="accordion-title">Все данные</span>
+                        <svg class="accordion-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                    </button>
+                    <div class="accordion-content" id="accordionContent" hidden>
+                        <div class="json-viewer" id="jsonViewer"></div>
+                    </div>
+                </div>
+
+                <div class="result-card error-card" id="errorCard" hidden>
+                    <h2 class="card-title error-title">Ошибка</h2>
+                    <p class="error-message" id="errorMessage"></p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
