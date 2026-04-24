@@ -1,18 +1,22 @@
 from pydantic import BaseModel, Field
-from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 
 class ExtractionCreate(BaseModel):
     archive_url: str = Field(description="URL to download the archive")
     tender_id: str = Field(description="Tender identifier")
+    model: Literal["openai", "gigachat"] = Field(
+        default="openai",
+        description="LLM model to use for extraction: 'openai' or 'gigachat'",
+    )
 
 
 class ExtractionResponse(BaseModel):
-    id: UUID
+    id: str
     tender_id: str
     archive_url: str
+    model: str = "openai"
     status: str
     current_stage: Optional[str] = None
     stage_progress: Optional[dict] = None
@@ -29,7 +33,7 @@ class ExtractionResponse(BaseModel):
 
 
 class ExtractionStatusResponse(BaseModel):
-    task_id: UUID
+    task_id: str
     status: str
     current_stage: Optional[str] = None
     result_json: Optional[dict] = None

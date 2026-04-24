@@ -1,9 +1,8 @@
 import logging
 import asyncio
 from sqlalchemy import update
-from sqlalchemy.dialects.postgresql import UUID
 
-from api.config import settings
+from api.config import settings, OUTPUT_DIR
 from api.database import ExtractionTask
 
 logger = logging.getLogger(__name__)
@@ -28,6 +27,8 @@ class SaveStage:
             engine, class_=AsyncSession, expire_on_commit=False
         )
 
+        procurement_url = f"/tenders/download/{context.task_id}"
+
         for attempt in range(3):
             try:
                 async with async_session() as session:
@@ -47,6 +48,7 @@ class SaveStage:
                             result_json=context.extraction_result,
                             failed_files=context.failed_files,
                             summary_text=context.summary_text,
+                            procurement_request_url=procurement_url,
                             error_message=None,
                         )
                     )

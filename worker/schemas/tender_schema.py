@@ -1,8 +1,16 @@
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
+class TenderSchemaSimple(BaseModel):
+    """
+    Схема, извлекаемых данных из тендерной документации
+    """
+    summary: "SemanticSummary"
 
 class TenderSchema(BaseModel):
+    """
+    Схема, извлекаемых данных из тендерной документации
+    """
     meta: "MetaInfo"
     tender_id: str
     identification: "Identification"

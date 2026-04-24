@@ -1,10 +1,13 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, Text, DateTime, Integer, JSON
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
 from datetime import datetime
+import os
+
 from api.config import settings
+
+DB_PATH = settings.database_url.replace("sqlite+aiosqlite:///", "")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 engine = create_async_engine(settings.database_url, echo=False)
 async_session_maker = async_sessionmaker(
@@ -17,9 +20,10 @@ Base = declarative_base()
 class ExtractionTask(Base):
     __tablename__ = "extraction_tasks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String(36), primary_key=True)
     tender_id = Column(String(255), nullable=False, index=True)
     archive_url = Column(Text, nullable=False)
+    model = Column(String(20), default="chatgpt")
     status = Column(String(20), default="pending", index=True)
     current_stage = Column(String(30), nullable=True)
     stage_progress = Column(JSON, default=dict)

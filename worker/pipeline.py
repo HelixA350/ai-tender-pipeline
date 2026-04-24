@@ -2,7 +2,6 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any
-from uuid import UUID
 
 from worker.stages.download import DownloadStage
 from worker.stages.extract import ExtractStage
@@ -14,12 +13,15 @@ from worker.stages.create_procurement_request import CreateProcurementRequestSta
 logger = logging.getLogger(__name__)
 
 
-async def run_stage(stage, context, task_id: str):
+async def run_stage(stage, context, task_id: str, model: str = None):
     stage_name = stage.__class__.__name__
     logger.info(f"Executing stage: {stage_name} for task {task_id}")
 
     try:
-        await stage.execute(context)
+        if model is not None:
+            await stage.execute(context, model)
+        else:
+            await stage.execute(context)
         logger.info(f"Stage {stage_name} completed for task {task_id}")
     except Exception as e:
         logger.error(f"Stage {stage_name} failed for task {task_id}: {e}")
@@ -74,8 +76,9 @@ def extract_summary_text(context: "PipelineContext") -> str:
 
 
 class PipelineContext:
-    def __init__(self, task_id: str):
+    def __init__(self, task_id: str, model: str = "openai"):
         self.task_id = task_id
+        self.model = model
         self.archive_path: str | None = None
         self.extracted_files: list[str] = []
         self.markdown_contents: dict[str, str] = {}
@@ -83,6 +86,7 @@ class PipelineContext:
         self.failed_files: list[str] = []
         self.summary_text: str = ""
         self.procurement_request_url: str | None = None
+        self.excel_data = None
 
 
 async def update_task_status(
@@ -128,9 +132,7 @@ async def update_task_status(
             values["procurement_request_url"] = procurement_request_url
 
         stmt = (
-            update(ExtractionTask)
-            .where(ExtractionTask.id == UUID(task_id))
-            .values(**values)
+            update(ExtractionTask).where(ExtractionTask.id == task_id).values(**values)
         )
         await session.execute(stmt)
         await session.commit()
@@ -147,13 +149,13 @@ class ExtractionPipeline:
         self.save_stage = SaveStage()
         self.procurement_request_stage = CreateProcurementRequestStage()
 
-    async def execute(self, task_id: str) -> dict:
-        context = PipelineContext(task_id)
+    async def execute(self, task_id: str, model: str = "openai") -> dict:
+        context = PipelineContext(task_id, model)
 
         await run_stage(self.download_stage, context, task_id)
         await run_stage(self.extract_stage, context, task_id)
         await run_stage(self.convert_stage, context, task_id)
-        await run_stage(self.llm_stage, context, task_id)
+        await run_stage(self.llm_stage, context, task_id, model)
 
         procurement_items = (
             context.extraction_result.get("procurement_items", [])
@@ -192,12 +194,12 @@ class SyncPipelineWrapper:
     def __init__(self):
         self.pipeline = ExtractionPipeline()
 
-    def execute_sync(self, task_id: str) -> dict:
+    def execute_sync(self, task_id: str, model: str = "openai") -> dict:
         try:
             loop = asyncio.get_running_loop()
             import nest_asyncio
 
             nest_asyncio.apply()
-            return loop.run_until_complete(self.pipeline.execute(task_id))
+            return loop.run_until_complete(self.pipeline.execute(task_id, model))
         except RuntimeError:
-            return asyncio.run(self.pipeline.execute(task_id))
+            return asyncio.run(self.pipeline.execute(task_id, model))

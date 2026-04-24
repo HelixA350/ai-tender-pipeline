@@ -1,52 +1,27 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: tenders
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+  kafka:
+    image: apache/kafka:latest
     ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
+      - "9092:9092"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDExMUUkRjYyMkI5NUVFMjk2QzUyRjk1QzU5RUU0QkMwRkMxMjMzNkMzNzFF
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
       interval: 10s
       timeout: 10s
       retries: 5
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-      MINIO_SERVER_URL: http://localhost:9000
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
 
   api:
     build:
@@ -57,20 +32,18 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./logs:/app/logs
+      - output:/app/output
+      - sqlite_data:/app/db
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/tenders}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:-postgresql://postgres:postgres@postgres:5432/tenders}
-      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      - DATABASE_URL=sqlite+aiosqlite:////app/db/tenders.db
+      - DATABASE_URL_SYNC=sqlite:////app/db/tenders.db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
       - OPENAI_MODEL=${OPENAI_MODEL}
-      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://localhost:9000}
       - PYTHONPATH=/app
     depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
+      kafka:
         condition: service_healthy
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000
 
@@ -80,28 +53,25 @@ services:
       dockerfile: Dockerfile.worker
     env_file:
       - .env
+    volumes:
+      - output:/app/output
+      - sqlite_data:/app/db
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@postgres:5432/tenders}
-      - DATABASE_URL_SYNC=${DATABASE_URL_SYNC:-postgresql://postgres:postgres@postgres:5432/tenders}
-      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672/}
+      - DATABASE_URL=sqlite+aiosqlite:////app/db/tenders.db
+      - DATABASE_URL_SYNC=sqlite:////app/db/tenders.db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
       - OPENAI_MODEL=${OPENAI_MODEL}
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
-      - MINIO_SECURE=${MINIO_SECURE:-false}
-      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://localhost:9000}
       - PYTHONPATH=/app
+      - WORKER_CONCURRENCY=1
     depends_on:
-      postgres:
+      kafka:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    command: celery -A worker.celery_app worker --loglevel=info --concurrency=4
+      api:
+        condition: service_started
+    command: python -m worker.tasks
 
 volumes:
-  postgres_data:
-  minio_data:
+  output:
+  sqlite_data:

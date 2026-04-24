@@ -1,14 +1,15 @@
 import logging
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-from fastapi.staticfiles import StaticFiles
+
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from api.database import init_db
 from api.routers import tenders
-from api.config import LOG_FILE, setup_logging
+from api.config import LOG_FILE, OUTPUT_DIR, setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     await init_db()
     yield
 
@@ -51,7 +53,6 @@ app = FastAPI(title="AI Tender Pipeline", version="1.0.0", lifespan=lifespan)
 app.add_middleware(LoggingMiddleware)
 
 app.include_router(tenders.router)
-app.mount("/", StaticFiles(directory="api/frontend", html=True), name="frontend")
 
 
 @app.get("/health/")
