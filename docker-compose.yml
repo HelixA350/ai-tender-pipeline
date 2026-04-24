@@ -30,7 +30,7 @@ services:
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      - "8003:8000"
     volumes:
       - output:/app/output
       - sqlite_data:/app/db
