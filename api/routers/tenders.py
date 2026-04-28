@@ -34,9 +34,10 @@ async def create_extraction_task(
     data: ExtractionCreate, db: AsyncSession = Depends(get_db)
 ):
     task_id = str(uuid4())
+    tender_id = data.tender_id if data.tender_id else task_id
     task = ExtractionTask(
         id=task_id,
-        tender_id=data.tender_id,
+        tender_id=tender_id,
         archive_url=data.archive_url,
         model=data.model,
         status="pending",

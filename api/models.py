@@ -1,11 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, Literal
 
 
 class ExtractionCreate(BaseModel):
+    model_config = ConfigDict(extra="allow")
     archive_url: str = Field(description="URL to download the archive")
-    tender_id: str = Field(description="Tender identifier")
+    tender_id: Optional[str] = Field(
+        default=None, description="Tender identifier (optional)"
+    )
     model: Literal["openai", "gigachat"] = Field(
         default="openai",
         description="LLM model to use for extraction: 'openai' or 'gigachat'",
