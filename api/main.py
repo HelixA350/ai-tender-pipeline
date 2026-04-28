@@ -1,8 +1,7 @@
 import logging
 import os
-from datetime import datetime
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
@@ -13,7 +12,7 @@ import httpx
 from api.database import init_db
 from api.routers import tenders
 from api.config import LOG_FILE, OUTPUT_DIR, setup_logging
-from api.models import ExtractionResponse, ExtractionStatusResponse
+from api.models import ExtractionCreate
 
 logger = logging.getLogger(__name__)
 
@@ -64,62 +63,44 @@ async def health_check():
     return {"status": "healthy"}
 
 
-@app.post("/ping")
-async def ping(request: Request):
-    return {"status": "ok"}
-
-
 @app.get("/file.log")
 async def get_log():
     return FileResponse(LOG_FILE, media_type="text/plain", filename="file.log")
 
 
-async def _send_to_client_ip(server_ip: str, payload: dict):
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(f"http://{server_ip}/", json=payload)
-    except Exception:
-        pass
-
-
-@app.get("/poll")
-async def poll_get(request: Request):
-    result = ExtractionStatusResponse(
-        task_id="poll-get-test-id",
-        status="completed",
-        current_stage="test",
-        result_json={"test": "get-poll-result"},
-        failed_files=[],
-        summary_text="Test GET /poll result",
-        procurement_request_url=None,
-        error_message=None,
-    )
-    result_dict = result.model_dump()
-    server_ip = request.client.host if request.client else "127.0.0.1"
-    await _send_to_client_ip(server_ip, result_dict)
-    return result
-
-
 @app.post("/poll")
-async def poll_post(request: Request):
-    now = datetime.utcnow()
-    result = ExtractionResponse(
-        id="poll-post-test-id",
-        tender_id="poll-test-tender",
-        archive_url="http://test.url/archive.zip",
-        model="openai",
-        status="pending",
-        current_stage=None,
-        stage_progress={},
-        result_json=None,
-        failed_files=[],
-        summary_text=None,
-        error_message=None,
-        retry_count=0,
-        created_at=now,
-        updated_at=now,
-    )
-    result_dict = result.model_dump()
-    server_ip = request.client.host if request.client else "127.0.0.1"
-    await _send_to_client_ip(server_ip, result_dict)
-    return result
+async def poll_post(data: ExtractionCreate):
+    if data.tender_id is None:
+        raise HTTPException(status_code=400, detail="tender_id is required")
+
+    callback_url = "https://tk.tandem-consult.ru/tender/index.php?action=callback"
+    headers = {
+        "Cookie": "BITRIX_SM2_TZ=Europe/Moscow; BITRIX_SM2_UIDL=a.faleev%40i-t-r.net; BITRIX_SM2_SALE_UID=530; BITRIX_SM2_LOGIN=a.faleev%40i-t-r.net; BITRIX_CONVERSION_CONTEXT_s1=%7B%22ID%22%3A2%2C%22EXPIRE%22%3A1777409940%2C%22UNIQUE%22%3A%5B%22conversion_visit_day%22%5D%7D; BITRIX_SM2_UIDD=g7r9cno17ltc0fh1ys2aonftxnr7mcw4; BITRIX_SM2_SOUND_LOGIN_PLAYED=Y; PHPSESSID=7EN1EqlIYq54Em3tw53bJtB5hlpAsAK3; BITRIX_SM2_LAST_SETTINGS=",
+        "Content-Type": "application/json",
+    }
+    callback_body = {
+        "tender_id": data.tender_id,
+        "summary_text": "Тестовая проверка: Данные успешно переданы из Postman. Анализ завершен.",
+        "error_message": "",
+        "status": "completed",
+    }
+
+    callback_status = None
+    error = None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(
+                callback_url, headers=headers, json=callback_body
+            )
+            callback_status = response.status_code
+    except httpx.RequestError as e:
+        error = str(e)
+
+    return {
+        "status": "callback sent"
+        if callback_status and 200 <= callback_status < 300
+        else "callback failed",
+        "callback_status_code": callback_status,
+        "tender_id": data.tender_id,
+        "error": error,
+    }
