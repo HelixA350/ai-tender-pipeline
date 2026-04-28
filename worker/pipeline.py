@@ -9,6 +9,7 @@ from worker.stages.convert import ConvertStage
 from worker.stages.extract_llm import ExtractLLMStage
 from worker.stages.save import SaveStage
 from worker.stages.create_procurement_request import CreateProcurementRequestStage
+from worker.stages.rag_extraction import RAGExtractionStage
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,7 @@ class PipelineContext:
         self.summary_text: str = ""
         self.procurement_request_url: str | None = None
         self.excel_data = None
+        self.content_length: int = 0
 
 
 async def update_task_status(
@@ -155,7 +157,19 @@ class ExtractionPipeline:
         await run_stage(self.download_stage, context, task_id)
         await run_stage(self.extract_stage, context, task_id)
         await run_stage(self.convert_stage, context, task_id)
-        await run_stage(self.llm_stage, context, task_id, model)
+
+        # Choose extraction strategy based on content length
+        if context.content_length >= 50000:
+            logger.info(
+                f"Content length {context.content_length} >= 50000, using RAG extraction"
+            )
+            rag_stage = RAGExtractionStage()
+            await run_stage(rag_stage, context, task_id, model)
+        else:
+            logger.info(
+                f"Content length {context.content_length} < 50000, using standard LLM extraction"
+            )
+            await run_stage(self.llm_stage, context, task_id, model)
 
         procurement_items = (
             context.extraction_result.get("procurement_items", [])

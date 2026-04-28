@@ -37,6 +37,11 @@ class ConvertStage:
 
         logger.info(f"Converted {len(context.markdown_contents)} files")
 
+        # Calculate content length (approximate token count)
+        all_md_text = "\n\n".join(context.markdown_contents.values())
+        context.content_length = len(all_md_text) // 4
+        logger.info(f"Calculated content_length: {context.content_length} tokens")
+
     def _convert_url(self, path: Path) -> str:
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:

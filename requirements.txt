@@ -13,6 +13,9 @@ lxml==5.3.0
 openai==1.52.0
 langchain-openai
 langchain-gigachat
+langchain-text-splitters
+faiss-cpu
+langchain-community
 pyzipper
 py7zr==0.22.0
 rarfile==4.2.0
