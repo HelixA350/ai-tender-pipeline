@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from kafka import KafkaConsumer
+from kafka import KafkaConsumer, KafkaProducer
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -18,6 +18,7 @@ from api.database import ExtractionTask
 logger = logging.getLogger(__name__)
 
 TOPIC = "extraction-tasks"
+RESULT_TOPIC = "extraction-results"
 GROUP_ID = "workers"
 BOOTSTRAP_SERVERS = settings.kafka_bootstrap_servers
 
@@ -25,6 +26,18 @@ pipeline = SyncPipelineWrapper()
 
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+_producer = None
+
+
+def get_result_producer():
+    global _producer
+    if _producer is None:
+        _producer = KafkaProducer(
+            bootstrap_servers=BOOTSTRAP_SERVERS,
+            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+        )
+    return _producer
 
 
 async def get_task_by_id(task_id: str):
@@ -56,8 +69,10 @@ async def update_task_stage(task_id: str, stage: str, progress: dict):
         await session.commit()
 
 
-async def process_task(task_id: str, model: str = "chatgpt"):
-    logger.info(f"Processing extraction task: {task_id} with model: {model}")
+async def process_task(task_id: str, model: str = "chatgpt", tender_id: str = None):
+    logger.info(
+        f"Processing extraction task: {task_id} with model: {model}, tender_id: {tender_id}"
+    )
 
     try:
         result = await get_task_by_id(task_id)
@@ -96,7 +111,13 @@ async def process_task(task_id: str, model: str = "chatgpt"):
                 },
             )
 
-        extraction_result = pipeline.execute_sync(task_id, model)
+        extraction_result = pipeline.execute_sync(task_id, model, tender_id)
+
+        # Send result to Kafka for webhook delivery
+        producer = get_result_producer()
+        message = extraction_result
+        future = producer.send(RESULT_TOPIC, message)
+        future.get(timeout=10)
 
         return {"status": "completed", "result": extraction_result}
 
@@ -132,10 +153,13 @@ def main():
         data = json.loads(message.value.decode("utf-8"))
         task_id = data["task_id"]
         model = data.get("model", "chatgpt")
-        logger.info(f"Received task: {task_id} with model: {model}")
+        tender_id = data.get("tender_id", task_id)
+        logger.info(
+            f"Received task: {task_id} with model: {model}, tender_id: {tender_id}"
+        )
 
         try:
-            asyncio.run(process_task(task_id, model))
+            asyncio.run(process_task(task_id, model, tender_id))
             logger.info(f"Task {task_id} completed successfully")
         except Exception as e:
             logger.error(f"Task {task_id} failed: {e}")

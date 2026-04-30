@@ -21,7 +21,7 @@ class ExtractionTask(Base):
     __tablename__ = "extraction_tasks"
 
     id = Column(String(36), primary_key=True)
-    tender_id = Column(String(255), nullable=False, index=True)
+    tender_id = Column(Integer, nullable=False, index=True)
     archive_url = Column(Text, nullable=False)
     model = Column(String(20), default="chatgpt")
     status = Column(String(20), default="pending", index=True)

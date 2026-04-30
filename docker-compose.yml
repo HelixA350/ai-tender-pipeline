@@ -72,6 +72,26 @@ services:
         condition: service_started
     command: python -m worker.tasks
 
+  webhook-sender:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    env_file:
+      - .env
+    volumes:
+      - output:/app/output
+      - sqlite_data:/app/db
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/db/tenders.db
+      - DATABASE_URL_SYNC=sqlite:////app/db/tenders.db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - PYTHONPATH=/app
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: python -m worker.webhook_sender
+
 volumes:
   output:
   sqlite_data:

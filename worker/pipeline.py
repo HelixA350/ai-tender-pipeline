@@ -1,14 +1,12 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any
 
 from worker.stages.download import DownloadStage
 from worker.stages.extract import ExtractStage
 from worker.stages.convert import ConvertStage
 from worker.stages.extract_llm import ExtractLLMStage
 from worker.stages.save import SaveStage
-from worker.stages.create_procurement_request import CreateProcurementRequestStage
 from worker.stages.rag_extraction import RAGExtractionStage
 
 logger = logging.getLogger(__name__)
@@ -58,36 +56,17 @@ async def try_run_stage(stage, context, task_id: str, stage_key: str):
     return False
 
 
-def extract_summary_text(context: "PipelineContext") -> str:
-    if not context.extraction_result or not context.extraction_result.get("summary"):
-        return ""
-
-    from worker.schemas.tender_schema import SemanticSummary
-
-    summary_data = context.extraction_result["summary"]
-    if not summary_data:
-        return ""
-
-    try:
-        summary_obj = SemanticSummary(**summary_data)
-        return summary_obj.to_text()
-    except Exception as e:
-        logger.warning(f"Failed to extract summary_text: {e}")
-        return ""
-
-
 class PipelineContext:
-    def __init__(self, task_id: str, model: str = "openai"):
+    def __init__(self, task_id: str, model: str = "openai", tender_id: str = None):
         self.task_id = task_id
         self.model = model
+        self.tender_id = tender_id or task_id
         self.archive_path: str | None = None
         self.extracted_files: list[str] = []
         self.markdown_contents: dict[str, str] = {}
         self.extraction_result: dict | None = None
         self.failed_files: list[str] = []
         self.summary_text: str = ""
-        self.procurement_request_url: str | None = None
-        self.excel_data = None
         self.content_length: int = 0
 
 
@@ -98,7 +77,6 @@ async def update_task_status(
     error: str | None = None,
     failed_files: list | None = None,
     summary_text: str | None = None,
-    procurement_request_url: str | None = None,
 ):
     from sqlalchemy import update
     from sqlalchemy.ext.asyncio import (
@@ -128,10 +106,6 @@ async def update_task_status(
             values["failed_files"] = failed_files
         if summary_text is not None:
             values["summary_text"] = summary_text
-        elif summary_text == "":
-            values["summary_text"] = ""
-        if procurement_request_url is not None:
-            values["procurement_request_url"] = procurement_request_url
 
         stmt = (
             update(ExtractionTask).where(ExtractionTask.id == task_id).values(**values)
@@ -149,10 +123,11 @@ class ExtractionPipeline:
         self.convert_stage = ConvertStage()
         self.llm_stage = ExtractLLMStage()
         self.save_stage = SaveStage()
-        self.procurement_request_stage = CreateProcurementRequestStage()
 
-    async def execute(self, task_id: str, model: str = "openai") -> dict:
-        context = PipelineContext(task_id, model)
+    async def execute(
+        self, task_id: str, model: str = "openai", tender_id: str = None
+    ) -> dict:
+        context = PipelineContext(task_id, model, tender_id)
 
         await run_stage(self.download_stage, context, task_id)
         await run_stage(self.extract_stage, context, task_id)
@@ -171,35 +146,88 @@ class ExtractionPipeline:
             )
             await run_stage(self.llm_stage, context, task_id, model)
 
-        procurement_items = (
-            context.extraction_result.get("procurement_items", [])
-            if context.extraction_result
-            else []
-        )
-        if procurement_items:
-            await try_run_stage(
-                self.procurement_request_stage,
-                context,
-                task_id,
-                "create_procurement_request",
-            )
-
         logger.info(f"Updating task {task_id} status to completed")
 
-        context.summary_text = extract_summary_text(context)
+        # Build new result_json structure
+        result_json = self._build_result_json(context)
 
         await update_task_status(
             task_id,
             "completed",
-            context.extraction_result,
+            result_json,
             failed_files=context.failed_files,
-            summary_text=context.summary_text,
-            procurement_request_url=context.procurement_request_url,
+            summary_text=result_json.get("summary_text", ""),
         )
 
         await self.save_stage.execute(context)
 
-        return context.extraction_result or {}
+        return result_json
+
+    def _build_result_json(self, context: PipelineContext) -> dict:
+        from worker.schemas.tender_schema import TenderSchemaShort, SemanticSummary
+
+        # Маппинг полей на русский
+        FIELD_MAPPING = {
+            "no": "№",
+            "request_number": "Запрос №",
+            "article": "Партномер/артикул",
+            "name": "Наименование",
+            "qty": "Кол-во",
+            "unit": "Ед.изм",
+            "brand": "Бренд",
+            "manufacturer": "Производитель",
+            "equipment_model": "Модель оборудования",
+            "serial_number": "Серийный №",
+            "drawing": "Чертеж",
+            "drawing_position": "Позиция на чертеже",
+            "material": "Материал",
+            "comments": "Комментарии",
+        }
+
+        if not context.extraction_result:
+            return {
+                "tender_id": context.tender_id,
+                "summary_text": "",
+                "error_message": "No extraction result",
+                "status": "failed",
+                "table_tender": [],
+            }
+
+        try:
+            tender_short = TenderSchemaShort(**context.extraction_result)
+
+            summary_text = ""
+            if tender_short.summary:
+                summary_text = tender_short.summary.to_text()
+
+            # Маппинг procurement_items с переводом полей
+            procurement_items = []
+            if tender_short.procurement_items:
+                for item in tender_short.procurement_items:
+                    item_dict = item.model_dump()
+                    mapped_item = {
+                        FIELD_MAPPING.get(k, k): v for k, v in item_dict.items()
+                    }
+                    procurement_items.append(mapped_item)
+
+            result = {
+                "tender_id": context.tender_id,
+                "summary_text": summary_text,
+                "error_message": "",
+                "status": "completed",
+                "table_tender": procurement_items,
+            }
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to build result_json: {e}")
+            return {
+                "tender_id": context.tender_id,
+                "summary_text": "",
+                "error_message": str(e),
+                "status": "failed",
+                "table_tender": [],
+            }
 
 
 class SyncPipelineWrapper:
@@ -208,12 +236,16 @@ class SyncPipelineWrapper:
     def __init__(self):
         self.pipeline = ExtractionPipeline()
 
-    def execute_sync(self, task_id: str, model: str = "openai") -> dict:
+    def execute_sync(
+        self, task_id: str, model: str = "openai", tender_id: str = None
+    ) -> dict:
         try:
             loop = asyncio.get_running_loop()
             import nest_asyncio
 
             nest_asyncio.apply()
-            return loop.run_until_complete(self.pipeline.execute(task_id, model))
+            return loop.run_until_complete(
+                self.pipeline.execute(task_id, model, tender_id)
+            )
         except RuntimeError:
-            return asyncio.run(self.pipeline.execute(task_id, model))
+            return asyncio.run(self.pipeline.execute(task_id, model, tender_id))

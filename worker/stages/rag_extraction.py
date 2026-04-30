@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 class RAGExtractionStage:
     async def execute(self, context, model: str = "openai"):
-        from worker.schemas.tender_schema import TenderSchemaSimple
+        from worker.schemas.tender_schema import TenderSchemaShort
         from api.config import settings
 
         logger.info(
@@ -67,8 +67,7 @@ class RAGExtractionStage:
 
         # Build FAISS index manually
         vector_store = FAISS.from_embeddings(
-            text_embeddings=list(zip(chunks, all_embeddings)),
-            embedding=embeddings
+            text_embeddings=list(zip(chunks, all_embeddings)), embedding=embeddings
         )
         logger.info(f"FAISS index created with {len(chunks)} vectors")
 
@@ -122,7 +121,7 @@ class RAGExtractionStage:
                 temperature=0,
                 max_tokens=32000,
             )
-        structured_llm = llm.with_structured_output(TenderSchemaSimple)
+        structured_llm = llm.with_structured_output(TenderSchemaShort)
 
         # 9. Invoke
         system_prompt = """You are an expert at extracting structured data from tender documentation.

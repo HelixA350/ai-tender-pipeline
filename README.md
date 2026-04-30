@@ -5,10 +5,9 @@ Backend для извлечения структурированных данн�
 ## Стек
 
 - **FastAPI** — REST API
-- **RabbitMQ** — Message queue
-- **Celery** — Task queue worker
+- **Kafka** — Message queue
 - **PostgreSQL** — База данных
-- **LangChain + OpenAI** — LLM для извлечения данных
+- **LangChain + OpenAI/GigaChat** — LLM для извлечения данных
 - **markitdown** — Конвертация файлов в Markdown
 - **Docker + Docker Compose** — Контейнеризация
 
@@ -47,6 +46,7 @@ open http://localhost:8000/docs
 | POST | `/tenders/extraction` | Создать задачу на извлечение |
 | GET | `/tenders/extraction/{task_id}` | Получить статус/результат |
 | GET | `/health/` | Health check |
+| POST | `/poll` | Poll/callback endpoint |
 
 ---
 
@@ -114,133 +114,34 @@ open http://localhost:8000/docs
   "status": "completed",
   "current_stage": "completed",
   "result_json": {
-    "meta": {
-      "source_files": ["doc1.pdf", "spec.xlsx"],
-      "tender_types": ["закупка"],
-      "package_comments": null
-    },
-    "tender_id": "TENDER-2024-001",
-    "tender_types": ["закупка"],
-    "summary": {
-      "customer": "Нефтеперерабатывающий завод в Хабаровском крае (ПАО Роснефть)",
-      "procurement_method": "Запрос предложений на SAP SRM, переторг разрешён",
-      "supply_scope": "Поставка 34 позиций запасных частей для дизельного двигателя Caterpillar 3512",
-      "service_scope": null,
-      "engineering_scope": null,
-      "delivery_terms": "DDP склад заказчика (г. Нефтеюганск), срок поставки — 90 дней",
-      "financial_profile": "НМЦ 4,2 млн руб. с НДС 20%. Оплата по факту поставки в течение 30 дней",
-      "penalty_profile": "0,1% за каждый день просрочки, максимум 10%",
-      "product_requirements": "Только новое оборудование. Гарантия 24 месяца",
-      "participant_requirements": null,
-      "timeline_summary": "Заявки до 15 мая 2025 (МСК), поставка 60 дней",
-      "complexity_flags": "Удалённый регион; жёсткая привязка к бренду"
-    },
-    "identification": {
-      "tender_id": "РН60306304",
-      "external_id": null,
-      "source": null
-    },
-    "general": {
-      "name": "Фильтры, корпуса, сальники...",
-      "method": "Запрос (Т)КП",
-      "status": "Приём заявок",
-      "platform": "ТЭК-Торг",
-      "platform_url": null,
-      "lot_divisible": null,
-      "rebidding_allowed": null,
-      "notes": null
-    },
-    "parties": {
-      "customer": {
-        "name": "ООО \"РН-КОМСОМОЛЬСКИЙ НПЗ\"",
-        "full_name": null,
-        "inn": "27030328...",
-        "kpp": null,
-        "address": null,
-        "contact_persons": null,
-        "procurement_org": null,
-        "procurement_group": null,
-        "notes": null
-      },
-      "notes": null
-    },
-    "dates": {
-      "publication_date": "2026-03-30",
-      "submission_deadline": "2026-04-10",
-      "submission_time": "09:00:00",
-      "submission_timezone": "МСК+3",
-      "opening_date": null,
-      "opening_time": null,
-      "results_date": null,
-      "clarification_request_deadline": null,
-      "delivery_start": null,
-      "delivery_end": null,
-      "early_delivery_allowed": null,
-      "notes": null
-    },
-    "financials": {
-      "nmck": null,
-      "bid_security": null,
-      "contract_security": null,
-      "auction_step": null,
-      "currencies": null,
-      "base_currency": null,
-      "vat_rate": null,
-      "prices_include_vat": null,
-      "payment_terms": null,
-      "incoterms": null,
-      "penalties": null,
-      "notes": null
-    },
-    "procurement_items": [
-      {
-        "position": 1,
-        "name": "Фильтр",
-        "article": "123456",
-        "manufacturer": "Example",
-        "qty": 10,
-        "unit": "шт",
-        "npp": null,
-        "category": null,
-        "unit_price": null,
-        "currency": null,
-        "delivery_date": null,
-        "delivery_location": null,
-        "analog_allowed": null,
-        "original_reference": null,
-        "linked_service": null,
-        "source": null,
-        "notes": null
-      }
-    ],
-    "special_items": null,
-    "items_summary": {
-      "total_positions": 1,
-      "total_qty_units": 10,
-      "price_filled": false,
-      "manufacturers_unique": null,
-      "is_single_manufacturer": null
-    },
-    "product_requirements": {
-      "condition": "новый",
-      "warranty_months": null,
-      "warranty_start": null,
-      "analog_allowed": null,
-      "analog_rules": null,
-      "import_substitution_required": null,
-      "import_substitution_registry": null,
-      "origin_restrictions": null,
-      "notes": null
-    },
-    "service_scope": null,
-    "engineering_scope": null,
-    "participant_requirements": null,
-    "submission_documents": null,
-    "scoring_signals": null
+    "tender_id": "550e8400-e29b-41d4-a716-446655440000",
+    "summary_text": "Заказчик: ООО РН-НПЗ | Способ закупки: Запрос предложений | Номенклатура: Фильтры для компрессоров | ...",
+    "error_message": "",
+    "status": "completed",
+    "table_tender": {
+      "procurement_items": [
+        {
+          "no": 1,
+          "request_number": null,
+          "article": "123456",
+          "name": "Фильтр",
+          "qty": 10,
+          "unit": "ШТ",
+          "brand": null,
+          "manufacturer": "Example",
+          "equipment_model": null,
+          "serial_number": null,
+          "drawing": null,
+          "drawing_position": null,
+          "material": null,
+          "comments": null
+        }
+      ]
+    }
   },
   "failed_files": ["document.pdf"],
   "summary_text": "Заказчик: ООО РН-НПЗ | Способ закупки: Запрос предложений | Номенклатура: Фильтры для компрессоров | ...",
-  "procurement_request_url": "http://minio.example.com/550e8400-e29b-41d4-a716-446655440000/zakupka.xlsx",
+  "procurement_request_url": null,
   "error_message": null
 }
 ```
@@ -268,21 +169,21 @@ open http://localhost:8000/docs
        ▼
 ┌─────────────────────────────────────────┐
 │  FastAPI (API)                          │
-│  - POST /tenders/extraction → RabbitMQ   │
+│  - POST /tenders/extraction → Kafka     │
 │  - GET /tenders/extraction/{id} → PG    │
 └─────────────────────┬───────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────┐
-│  RabbitMQ (queue: celery)               │
+│  Kafka (topic: extraction-tasks)         │
 └─────────────────────┬───────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────┐
-│  Celery Worker                          │
+│  Worker                                 │
 │  Pipeline Stages:                       │
 │  1. Download → 2. Extract → 3. Convert  │
-│  4. LLM (with_structured_output)        │
+│  4. LLM (TenderSchemaShort)             │
 │  5. Save (background)                   │
 └─────────────────────┬───────────────────┘
                       │
@@ -297,9 +198,8 @@ open http://localhost:8000/docs
 1. **Download** — Скачивание архива по URL
 2. **Extract** — Извлечение файлов из архива (zip, rar, 7z, tar.gz)
 3. **Convert** — Конвертация файлов в Markdown (markitdown)
-4. **LLM** — Извлечение структурированных данных через LangChain + OpenAI с использованием `with_structured_output()`
-5. **CreateProcurementRequest** — Создание Excel-заявки для отдела закупок (сохранение в Minio)
-6. **Save** — Сохранение результата в БД (фоновая задача)
+4. **LLM** — Извлечение структурированных данных через LangChain + OpenAI/GigaChat с использованием `TenderSchemaShort`
+5. **Save** — Сохранение результата в БД (фоновая задача)
 
 ---
 
@@ -308,12 +208,12 @@ open http://localhost:8000/docs
 | Переменная | Описание | По умолчанию |
 |------------|----------|--------------|
 | `DATABASE_URL` | PostgreSQL async URL | postgresql+asyncpg://postgres:postgres@postgres:5432/tenders |
-| `DATABASE_URL_SYNC` | PostgreSQL sync URL | postgresql://postgres:postgres@postgres:5432/tenders |
-| `RABBITMQ_URL` | RabbitMQ URL | amqp://guest:guest@rabbitmq:5672/ |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka bootstrap servers | localhost:9092 |
 | `OPENAI_API_KEY` | API ключ OpenAI | - |
 | `OPENAI_BASE_URL` | Base URL API | api.agentplatform.ru |
-| `OPENAI_MODEL` | Модель | openai/gpt-5.2-chat |
-| `MINIO_PUBLIC_URL` | Публичный URL Minio | localhost:9000 |
+| `OPENAI_MODEL` | Модель OpenAI | gpt-4o |
+| `GIGACHAT_API_KEY` | API ключ GigaChat | - |
+| `GIGACHAT_MODEL` | Модель GigaChat | GigaChat-Pro |
 
 ---
 

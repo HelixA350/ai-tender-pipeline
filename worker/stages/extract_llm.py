@@ -9,7 +9,7 @@ class ExtractLLMStage:
 
     async def execute(self, context, model: str = "openai"):
         from api.config import settings
-        from worker.schemas.tender_schema import TenderSchema, TenderSchemaSimple
+        from worker.schemas.tender_schema import TenderSchemaShort
 
         logger.info(f"Starting LLM extraction with model: {model}")
 
@@ -25,7 +25,7 @@ class ExtractLLMStage:
                 verify_ssl_certs=False,
                 timeout=600,
             )
-            structured_llm = llm.with_structured_output(TenderSchemaSimple)
+            structured_llm = llm.with_structured_output(TenderSchemaShort)
         elif model == "openai":
             from langchain_openai import ChatOpenAI
 
@@ -36,7 +36,7 @@ class ExtractLLMStage:
                 temperature=0,
                 max_tokens=32000,
             )
-            structured_llm = llm.with_structured_output(TenderSchema)
+            structured_llm = llm.with_structured_output(TenderSchemaShort)
 
         combined_content = self._prepare_content(context.markdown_contents)
 

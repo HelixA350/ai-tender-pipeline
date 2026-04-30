@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     openai_model: str = "openai/gpt-5-chat-latest"
 
     worker_concurrency: int = 4
+    webhook_url: str = ""
 
     class Config:
         env_file = ".env"

@@ -6,9 +6,7 @@ from typing import Optional, Literal
 class ExtractionCreate(BaseModel):
     model_config = ConfigDict(extra="allow")
     archive_url: str = Field(description="URL to download the archive")
-    tender_id: Optional[str] = Field(
-        default=None, description="Tender identifier (optional)"
-    )
+    tender_id: int = Field(description="Tender identifier")
     model: Literal["openai", "gigachat"] = Field(
         default="openai",
         description="LLM model to use for extraction: 'openai' or 'gigachat'",
@@ -17,7 +15,7 @@ class ExtractionCreate(BaseModel):
 
 class ExtractionResponse(BaseModel):
     id: str
-    tender_id: str
+    tender_id: int
     archive_url: str
     model: str = "openai"
     status: str
@@ -44,3 +42,4 @@ class ExtractionStatusResponse(BaseModel):
     summary_text: Optional[str] = None
     procurement_request_url: Optional[str] = None
     error_message: Optional[str] = None
+    tender_id: Optional[int] = None

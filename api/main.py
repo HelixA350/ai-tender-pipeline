@@ -2,7 +2,6 @@ import logging
 import os
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -20,9 +19,6 @@ logger = logging.getLogger(__name__)
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
-
-        if path == "/file.log":
-            return await call_next(request)
 
         logger.info(f"Request: {request.method} {path}")
         logger.info(f"Request headers: {dict(request.headers)}")
@@ -63,11 +59,6 @@ async def health_check():
     return {"status": "healthy"}
 
 
-@app.get("/file.log")
-async def get_log():
-    return FileResponse(LOG_FILE, media_type="text/plain", filename="file.log")
-
-
 @app.post("/poll")
 async def poll_post(data: ExtractionCreate):
     if data.tender_id is None:
@@ -75,7 +66,7 @@ async def poll_post(data: ExtractionCreate):
 
     callback_url = "https://tk.tandem-consult.ru/tender/index.php?action=callback"
     headers = {
-        "Cookie": "BITRIX_SM2_TZ=Europe/Moscow; BITRIX_SM2_UIDL=a.faleev%40i-t-r.net; BITRIX_SM2_SALE_UID=530; BITRIX_SM2_LOGIN=a.faleev%40i-t-r.net; BITRIX_CONVERSION_CONTEXT_s1=%7B%22ID%22%3A2%2C%22EXPIRE%22%3A1777409940%2C%22UNIQUE%22%3A%5B%22conversion_visit_day%22%5D%7D; BITRIX_SM2_UIDD=g7r9cno17ltc0fh1ys2aonftxnr7mcw4; BITRIX_SM2_SOUND_LOGIN_PLAYED=Y; PHPSESSID=7EN1EqlIYq54Em3tw53bJtB5hlpAsAK3; BITRIX_SM2_LAST_SETTINGS=",
+        "Cookie": "BITRIX_SM2_TZ=Europe/Moscow; BITRIX_SM2_UIDL=a.faleev%40i-t-r.net; BITRIX_SM2_SALE_UID=530; BITRIX_SM2_LOGIN=a.faleev%40i-t-r.net; BITRIX_SM2_UIDD=g7r9cno17ltc0fh1ys2aonftxnr7mcw4; BITRIX_SM2_SOUND_LOGIN_PLAYED=Y; BITRIX_SM2_LAST_SETTINGS=; PHPSESSID=bBtWgG6FSb0S028EMmGKPCJXLdHte2m8; BITRIX_CONVERSION_CONTEXT_s1=%7B%22ID%22%3A2%2C%22EXPIRE%22%3A1777496340%2C%22UNIQUE%22%3A%5B%22conversion_visit_day%22%5D%7D",
         "Content-Type": "application/json",
     }
     callback_body = {
