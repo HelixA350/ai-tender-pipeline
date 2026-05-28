@@ -16,18 +16,21 @@ BOOTSTRAP_SERVERS = settings.kafka_bootstrap_servers
 
 
 async def send_webhook(payload: dict, max_retries: int = 3) -> bool:
-    if not settings.webhook_url:
-        logger.warning("WEBHOOK_URL not set, skipping webhook")
+    target_url = payload.get("base_url") or settings.webhook_url
+    if not target_url:
+        logger.warning("No base_url provided and WEBHOOK_URL not set, skipping webhook")
         return False
 
     import httpx
 
+    body = payload.get("result_json", payload)
+
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(settings.webhook_url, json=payload)
+                resp = await client.post(target_url, json=body)
                 resp.raise_for_status()
-                logger.info(f"Webhook sent successfully: {payload}")
+                logger.info(f"Webhook sent to {target_url}: {body}")
                 return True
         except Exception as e:
             logger.error(f"Webhook attempt {attempt + 1}/{max_retries} failed: {e}")
@@ -52,7 +55,7 @@ def main():
 
     for message in consumer:
         payload = message.value
-        logger.info(f"Received result for task {payload.get('task_id')}")
+        logger.info(f"Received result for task {payload.get('result_json', {}).get('tender_id', '?')}")
         asyncio.run(send_webhook(payload))
 
 

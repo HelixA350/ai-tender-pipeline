@@ -7,6 +7,7 @@ class ExtractionCreate(BaseModel):
     model_config = ConfigDict(extra="allow")
     archive_url: str = Field(description="URL to download the archive")
     tender_id: int = Field(description="Tender identifier")
+    base_url: str = Field(default="", description="Webhook URL for result notification")
     model: Literal["openai", "gigachat"] = Field(
         default="openai",
         description="LLM model to use for extraction: 'openai' or 'gigachat'",

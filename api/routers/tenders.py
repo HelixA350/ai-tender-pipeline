@@ -45,7 +45,7 @@ async def create_extraction_task(
     await db.refresh(task)
 
     producer = get_producer()
-    message = {"task_id": task_id, "model": data.model, "tender_id": data.tender_id}
+    message = {"task_id": task_id, "model": data.model, "tender_id": data.tender_id, "base_url": data.base_url}
     future = producer.send(TOPIC, message)
     future.get(timeout=10)
 
