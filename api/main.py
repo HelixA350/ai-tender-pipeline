@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import httpx
 
 from api.database import init_db
-from api.routers import tenders
+from api.routers import tenders, test
 from api.config import LOG_FILE, OUTPUT_DIR, setup_logging
 from api.models import ExtractionCreate
 
@@ -52,6 +52,7 @@ app = FastAPI(title="AI Tender Pipeline", version="1.0.0", lifespan=lifespan)
 app.add_middleware(LoggingMiddleware)
 
 app.include_router(tenders.router)
+app.include_router(test.router)
 
 
 @app.get("/health/")
