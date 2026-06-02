@@ -31,6 +31,7 @@ class ExtractStage:
         logger.info(f"Extracting archive: {archive_path}")
 
         temp_dir = tempfile.mkdtemp()
+        context.temp_extract_dir = temp_dir
 
         try:
             self._extract_archive(archive_path, temp_dir, depth=0)

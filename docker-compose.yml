@@ -1,32 +1,19 @@
+networks:
+  shared-kafka:
+    external: true
+
+volumes:
+  output:
+  sqlite_data:
+
 services:
-  kafka:
-    image: apache/kafka:latest
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      CLUSTER_ID: MkU3OEVBNTcwNTJENDExMUUkRjYyMkI5NUVFMjk2QzUyRjk1QzU5RUU0QkMwRkMxMjMzNkMzNzFF
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
 
   api:
     build:
       context: .
       dockerfile: Dockerfile.api
+    networks:
+      - shared-kafka
     env_file:
       - .env
     ports:
@@ -42,15 +29,15 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
       - OPENAI_MODEL=${OPENAI_MODEL}
       - PYTHONPATH=/app
-    depends_on:
-      kafka:
-        condition: service_healthy
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    networks:
+      - shared-kafka
     env_file:
       - .env
     volumes:
@@ -65,17 +52,21 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL}
       - PYTHONPATH=/app
       - WORKER_CONCURRENCY=1
+      - CLEANUP_INTERVAL_MINUTES=60
+      - CLEANUP_DB_RETENTION_DAYS=30
+      - CLEANUP_ORPHAN_HOURS=24
     depends_on:
-      kafka:
-        condition: service_healthy
       api:
         condition: service_started
     command: python -m worker.tasks
+    restart: unless-stopped
 
   webhook-sender:
     build:
       context: .
       dockerfile: Dockerfile.worker
+    networks:
+      - shared-kafka
     env_file:
       - .env
     volumes:
@@ -87,11 +78,5 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - WEBHOOK_URL=${WEBHOOK_URL}
       - PYTHONPATH=/app
-    depends_on:
-      kafka:
-        condition: service_healthy
     command: python -m worker.webhook_sender
-
-volumes:
-  output:
-  sqlite_data:
+    restart: unless-stopped

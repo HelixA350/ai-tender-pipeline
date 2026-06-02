@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import shutil
 from datetime import datetime
 
 from worker.stages.download import DownloadStage
@@ -62,6 +64,7 @@ class PipelineContext:
         self.model = model
         self.tender_id = tender_id or task_id
         self.archive_path: str | None = None
+        self.temp_extract_dir: str | None = None
         self.extracted_files: list[str] = []
         self.markdown_contents: dict[str, str] = {}
         self.extraction_result: dict | None = None
@@ -129,39 +132,58 @@ class ExtractionPipeline:
     ) -> dict:
         context = PipelineContext(task_id, model, tender_id)
 
-        await run_stage(self.download_stage, context, task_id)
-        await run_stage(self.extract_stage, context, task_id)
-        await run_stage(self.convert_stage, context, task_id)
+        try:
+            await run_stage(self.download_stage, context, task_id)
+            await run_stage(self.extract_stage, context, task_id)
+            await run_stage(self.convert_stage, context, task_id)
 
-        # Choose extraction strategy based on content length
-        if context.content_length >= 50000:
-            logger.info(
-                f"Content length {context.content_length} >= 50000, using RAG extraction"
+            # Choose extraction strategy based on content length
+            if context.content_length >= 50000:
+                logger.info(
+                    f"Content length {context.content_length} >= 50000, using RAG extraction"
+                )
+                rag_stage = RAGExtractionStage()
+                await run_stage(rag_stage, context, task_id, model)
+            else:
+                logger.info(
+                    f"Content length {context.content_length} < 50000, using standard LLM extraction"
+                )
+                await run_stage(self.llm_stage, context, task_id, model)
+
+            logger.info(f"Updating task {task_id} status to completed")
+
+            # Build new result_json structure
+            result_json = self._build_result_json(context)
+
+            await update_task_status(
+                task_id,
+                "completed",
+                result_json,
+                failed_files=context.failed_files,
+                summary_text=result_json.get("summary_text", ""),
             )
-            rag_stage = RAGExtractionStage()
-            await run_stage(rag_stage, context, task_id, model)
-        else:
-            logger.info(
-                f"Content length {context.content_length} < 50000, using standard LLM extraction"
-            )
-            await run_stage(self.llm_stage, context, task_id, model)
 
-        logger.info(f"Updating task {task_id} status to completed")
+            await self.save_stage.execute(context)
 
-        # Build new result_json structure
-        result_json = self._build_result_json(context)
+            return result_json
 
-        await update_task_status(
-            task_id,
-            "completed",
-            result_json,
-            failed_files=context.failed_files,
-            summary_text=result_json.get("summary_text", ""),
-        )
+        finally:
+            self._cleanup_temp_files(context, task_id)
 
-        await self.save_stage.execute(context)
+    def _cleanup_temp_files(self, context: PipelineContext, task_id: str):
+        if context.archive_path and os.path.exists(context.archive_path):
+            try:
+                os.unlink(context.archive_path)
+                logger.info(f"Deleted temp archive: {context.archive_path} for task {task_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp archive {context.archive_path}: {e}")
 
-        return result_json
+        if context.temp_extract_dir and os.path.exists(context.temp_extract_dir):
+            try:
+                shutil.rmtree(context.temp_extract_dir)
+                logger.info(f"Deleted temp extract dir: {context.temp_extract_dir} for task {task_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp extract dir {context.temp_extract_dir}: {e}")
 
     def _build_result_json(self, context: PipelineContext) -> dict:
         from worker.schemas.tender_schema import TenderSchemaShort, SemanticSummary
