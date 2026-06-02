@@ -71,9 +71,9 @@ async def update_task_stage(task_id: str, stage: str, progress: dict):
         await session.commit()
 
 
-async def process_task(task_id: str, model: str = "chatgpt", tender_id: str = None):
+async def process_task(task_id: str, model: str = "chatgpt", tender_id: str = None, base_url: str = None):
     logger.info(
-        f"Processing extraction task: {task_id} with model: {model}, tender_id: {tender_id}"
+        f"Processing extraction task: {task_id} with model: {model}, tender_id: {tender_id}, base_url: {base_url}"
     )
 
     try:
@@ -117,7 +117,10 @@ async def process_task(task_id: str, model: str = "chatgpt", tender_id: str = No
 
         # Send result to Kafka for webhook delivery
         producer = get_result_producer()
-        message = extraction_result
+        message = {
+            "result_json": extraction_result,
+            "base_url": base_url or "",
+        }
         future = producer.send(RESULT_TOPIC, message)
         future.get(timeout=10)
 
@@ -160,12 +163,13 @@ def main():
         task_id = data["task_id"]
         model = data.get("model", "chatgpt")
         tender_id = data.get("tender_id", task_id)
+        base_url = data.get("base_url", "")
         logger.info(
-            f"Received task: {task_id} with model: {model}, tender_id: {tender_id}"
+            f"Received task: {task_id} with model: {model}, tender_id: {tender_id}, base_url: {base_url}"
         )
 
         try:
-            asyncio.run(process_task(task_id, model, tender_id))
+            asyncio.run(process_task(task_id, model, tender_id, base_url))
             logger.info(f"Task {task_id} completed successfully")
         except Exception as e:
             logger.error(f"Task {task_id} failed: {e}")
