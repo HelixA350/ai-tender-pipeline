@@ -1,8 +1,7 @@
-import json
 import logging
 import os
 
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException
+from fastapi import APIRouter, Form, HTTPException
 import httpx
 from pydantic import BaseModel, Field
 
@@ -27,23 +26,14 @@ class EmailBody(BaseModel):
 async def test_email(
     meta: str = Form(...),
     body: str = Form(...),
-    files: list[UploadFile] = File(None),
 ):
     meta_parsed = EmailMeta.model_validate_json(meta)
     body_parsed = EmailBody.model_validate_json(body)
-
-    filenames = []
-    if files:
-        for f in files:
-            filenames.append(f.filename)
-            content = await f.read()
-            logger.info(f"Received file: {f.filename} ({len(content)} bytes)")
 
     return {
         "status": "ok",
         "meta": meta_parsed.model_dump(by_alias=True),
         "body": body_parsed.model_dump(),
-        "files": filenames,
     }
 
 
