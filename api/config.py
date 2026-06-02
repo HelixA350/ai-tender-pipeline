@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     worker_concurrency: int = 4
     webhook_url: str = ""
 
+    cleanup_interval_minutes: int = 60
+    cleanup_db_retention_days: int = 30
+
     class Config:
         env_file = ".env"
         extra = "allow"
@@ -29,16 +32,19 @@ settings = Settings()
 LOG_DIR = os.getenv("LOG_DIR", "/app/logs")
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "/app/output")
+CLEANUP_ORPHAN_HOURS = int(os.getenv("CLEANUP_ORPHAN_HOURS", "24"))
 
 
 def setup_logging():
+    from logging.handlers import RotatingFileHandler
+
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(LOG_FILE),
+            RotatingFileHandler(LOG_FILE, maxBytes=10 * 1024 * 1024, backupCount=3),
             logging.StreamHandler(),
         ],
     )

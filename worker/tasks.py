@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import json
+import threading
 
 import sys
 import os
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 from api.config import settings
 from worker.pipeline import SyncPipelineWrapper
+from worker.cleanup_service import periodic_cleanup
 from api.database import ExtractionTask
 
 logger = logging.getLogger(__name__)
@@ -137,6 +139,10 @@ async def process_task(task_id: str, model: str = "chatgpt", tender_id: str = No
 
 
 def main():
+    cleanup_thread = threading.Thread(target=periodic_cleanup, daemon=True)
+    cleanup_thread.start()
+    logger.info("Periodic cleanup thread started")
+
     logger.info(f"Starting Kafka consumer for topic '{TOPIC}'...")
 
     consumer = KafkaConsumer(
