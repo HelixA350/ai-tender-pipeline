@@ -2,6 +2,7 @@ networks:
   shared-kafka:
     external: true
 
+
 volumes:
   output:
   sqlite_data:
