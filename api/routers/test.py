@@ -73,7 +73,6 @@ async def test_card():
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(webhook_url, json=demo)
             return {
-                "message": "я прислал на такой-то адрес вот такое содержимое",
                 "sent_to_url": webhook_url,
                 "sent_payload": demo,
                 "webhook_status": resp.status_code,
